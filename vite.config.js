@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  base: '/nishuplayer/',
   plugins: [
     react(),
     VitePWA({
@@ -14,8 +15,8 @@ export default defineConfig({
         theme_color: '#121212',
         background_color: '#000000',
         display: 'standalone',
-        scope: '/',
-        start_url: '/',
+        scope: '/nishuplayer/',
+        start_url: '/nishuplayer/',
         icons: [
           {
             src: 'pwa-192x192.png',
