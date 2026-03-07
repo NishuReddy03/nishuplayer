@@ -8,34 +8,6 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      manifest: {
-        name: 'NishuPlayer',
-        short_name: 'Nishu',
-        description: 'Modern, High-Quality Music Player',
-        theme_color: '#121212',
-        background_color: '#000000',
-        display: 'standalone',
-        scope: '/nishuplayer/',
-        start_url: '/nishuplayer/',
-        icons: [
-          {
-            src: 'pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable',
-          },
-        ],
-      },
     }),
   ],
   server: {
