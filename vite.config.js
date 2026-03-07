@@ -5,7 +5,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   base: '/nishuplayer/',
   plugins: [
-    react(),
+    react({
+      jsxImportSource: 'react',
+    }),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: false,
