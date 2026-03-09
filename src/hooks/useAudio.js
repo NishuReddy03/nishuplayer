@@ -2,186 +2,122 @@ import React from "react";
 
 export const useAudio = () => {
   const audioRef = React.useRef(null);
-  const audioContextRef = React.useRef(null);
-  const analyzerRef = React.useRef(null);
-  const sourceRef = React.useRef(null);
-  const gainNodeRef = React.useRef(null);
-  const bassFilterRef = React.useRef(null);
-  const trebleFilterRef = React.useRef(null);
-  const [bassGain, setBassGain] = React.useState(0);
-  const [trebleGain, setTrebleGain] = React.useState(0);
+  const [isAudioContextReady, setIsAudioContextReady] = React.useState(false);
 
-  // Initialize audio
+  // Initialize audio element
   React.useEffect(() => {
     if (!audioRef.current) {
       const audio = new Audio();
       audio.crossOrigin = "anonymous";
-      audioRef.current = audio;
+      audio.preload = "metadata";
+      audio.volume = 1;
 
-      // Update progress
-      audio.addEventListener("timeupdate", () => {
-        // Will be handled by parent component
+      // Handle successful loading
+      audio.addEventListener("loadedmetadata", () => {
+        console.log("Audio metadata loaded");
       });
 
-      // Handle song end
-      audio.addEventListener("ended", () => {
-        // Will be handled by parent component
+      // Handle can play
+      audio.addEventListener("canplay", () => {
+        console.log("Audio can play");
       });
 
       // Handle errors
       audio.addEventListener("error", (error) => {
         console.error("Audio Playback Error:", error);
+        console.error("Error code:", audio.error?.code);
+        console.error("Error message:", audio.error?.message);
       });
 
-      // Handle stalled state
+      // Handle load start
+      audio.addEventListener("loadstart", () => {
+        console.log("Audio load started");
+      });
+
+      // Handle stalled
       audio.addEventListener("stalled", () => {
-        console.warn("Audio stream stalled, attempting to recover...");
+        console.warn("Audio stalled, retrying...");
+        // Try to reload the audio
+        if (audio.src) {
+          audio.load();
+        }
       });
 
-      audio.addEventListener("suspend", () => {
-        console.warn("Audio context suspended, attempting to resume...");
-      });
+      audioRef.current = audio;
     }
 
     return () => {
-      // Cleanup
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = "";
+        audioRef.current = null;
       }
     };
   }, []);
 
-  // Setup Web Audio API
-  const setupAudioContext = React.useCallback(() => {
-    if (!audioRef.current || audioContextRef.current) return;
-
-    try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      const audioContext = new AudioContextClass();
-      audioContextRef.current = audioContext;
-
-      if (audioContext.state === "suspended") {
-        audioContext
-          .resume()
-          .catch((e) => console.warn("Could not resume audio context:", e));
-      }
-
-      const source = audioContext.createMediaElementSource(audioRef.current);
-      sourceRef.current = source;
-
-      // Create gain node for volume
-      const gainNode = audioContext.createGain();
-      gainNodeRef.current = gainNode;
-
-      // Create bass filter (low shelf)
-      const bassFilter = audioContext.createBiquadFilter();
-      bassFilter.type = "lowshelf";
-      bassFilter.frequency.value = 150;
-      bassFilterRef.current = bassFilter;
-
-      // Create treble filter (high shelf)
-      const trebleFilter = audioContext.createBiquadFilter();
-      trebleFilter.type = "highshelf";
-      trebleFilter.frequency.value = 4000;
-      trebleFilterRef.current = trebleFilter;
-
-      // Connect the audio graph
-      source.connect(bassFilter);
-      bassFilter.connect(trebleFilter);
-      trebleFilter.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-    } catch (error) {
-      console.warn("Web Audio API not available:", error);
-    }
-  }, []);
-
-  // Set song to play
+  // Set audio source
   const setAudioSource = React.useCallback((url) => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || !url) return;
 
-    setupAudioContext();
-
+    console.log("Setting audio source:", url);
     audioRef.current.src = url;
     audioRef.current.load();
-  }, [setupAudioContext]);
+  }, []);
 
-  // Play audio
-  const play = React.useCallback(() => {
-    if (!audioRef.current) return;
-
-    setupAudioContext();
-
-    if (audioContextRef.current?.state === "suspended") {
-      audioContextRef.current.resume().catch((e) => {
-        console.warn("Could not resume audio context:", e);
-      });
+  // Play audio with user interaction handling
+  const play = React.useCallback(async () => {
+    if (!audioRef.current) {
+      console.error("No audio element available");
+      return;
     }
 
-    audioRef.current
-      .play()
-      .catch((error) => {
-        console.warn("Play prevented:", error);
-      });
-  }, [setupAudioContext]);
+    try {
+      // Check if we need user interaction
+      if (audioRef.current.paused) {
+        await audioRef.current.play();
+        console.log("Audio started playing");
+      }
+    } catch (error) {
+      console.error("Play failed:", error);
+      // If autoplay is blocked, we need user interaction
+      if (error.name === "NotAllowedError") {
+        console.warn("Autoplay blocked - requires user interaction");
+        // You might want to show a play button or message to user
+      }
+    }
+  }, []);
 
   // Pause audio
   const pause = React.useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
+      console.log("Audio paused");
     }
   }, []);
 
   // Set volume
   const setVolume = React.useCallback((volume) => {
-    if (!audioRef.current) return;
-
-    if (gainNodeRef.current) {
-      // Web Audio API volume (0-1 range, but squared for better control)
-      gainNodeRef.current.gain.value = volume * volume;
-    } else {
-      // Fallback to native audio volume
-      audioRef.current.volume = volume;
+    if (audioRef.current) {
+      audioRef.current.volume = Math.max(0, Math.min(1, volume));
     }
   }, []);
 
-  // Seek to time
-  const seek = React.useCallback((time) => {
-    if (!audioRef.current || isNaN(audioRef.current.duration)) return;
-
-    // Clamp between 0 and duration
-    audioRef.current.currentTime = Math.max(
-      0,
-      Math.min(time * audioRef.current.duration, audioRef.current.duration)
-    );
+  // Seek to position
+  const seek = React.useCallback((position) => {
+    if (audioRef.current && !isNaN(audioRef.current.duration)) {
+      const time = position * audioRef.current.duration;
+      audioRef.current.currentTime = Math.max(0, Math.min(time, audioRef.current.duration));
+    }
   }, []);
 
   // Get current time
   const getCurrentTime = React.useCallback(() => {
-    if (!audioRef.current) return 0;
-    return audioRef.current.currentTime;
+    return audioRef.current?.currentTime || 0;
   }, []);
 
   // Get duration
   const getDuration = React.useCallback(() => {
-    if (!audioRef.current) return 0;
-    return audioRef.current.duration || 0;
-  }, []);
-
-  // Set bass gain
-  const updateBassGain = React.useCallback((value) => {
-    setBassGain(value);
-    if (bassFilterRef.current) {
-      bassFilterRef.current.gain.value = value;
-    }
-  }, []);
-
-  // Set treble gain
-  const updateTrebleGain = React.useCallback((value) => {
-    setTrebleGain(value);
-    if (trebleFilterRef.current) {
-      trebleFilterRef.current.gain.value = value;
-    }
+    return audioRef.current?.duration || 0;
   }, []);
 
   return {
@@ -193,9 +129,5 @@ export const useAudio = () => {
     seek,
     getCurrentTime,
     getDuration,
-    updateBassGain,
-    bassGain,
-    updateTrebleGain,
-    trebleGain,
   };
 };

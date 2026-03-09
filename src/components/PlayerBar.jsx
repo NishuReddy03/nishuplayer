@@ -57,15 +57,6 @@ const HeartIcon = ({ size = 24, filled = false }) => (
   </svg>
 );
 
-const SliderIcon = ({ size = 24 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="3" cy="12" r="1" />
-    <circle cx="9" cy="12" r="1" />
-    <circle cx="15" cy="12" r="1" />
-    <circle cx="21" cy="12" r="1" />
-  </svg>
-);
-
 const PlayerBar = () => {
   const {
     currentSong,
@@ -84,8 +75,6 @@ const PlayerBar = () => {
     toggleFavorite,
     setProgress,
   } = useMusicStoreWithActions();
-
-  const [showEQ, setShowEQ] = React.useState(false);
 
   const formatTime = (seconds) => {
     if (!seconds || isNaN(seconds)) return "0:00";
@@ -205,29 +194,6 @@ const PlayerBar = () => {
 
       {/* Player Utils Section */}
       <div className="player-utils">
-        {/* EQ */}
-        <div className="eq-container">
-          <button
-            className={`util-btn ${showEQ ? "active" : ""}`}
-            onClick={() => setShowEQ(!showEQ)}
-            title="Equalizer"
-          >
-            <SliderIcon size={20} />
-          </button>
-          {showEQ && (
-            <div className="eq-popover">
-              <div className="eq-slider">
-                <label>Bass</label>
-                <input type="range" min="-10" max="10" defaultValue="0" />
-              </div>
-              <div className="eq-slider">
-                <label>Treble</label>
-                <input type="range" min="-10" max="10" defaultValue="0" />
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Volume Control */}
         <div className="volume-control">
           <button

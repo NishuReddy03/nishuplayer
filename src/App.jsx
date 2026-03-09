@@ -47,19 +47,17 @@ const App = () => {
   // Set audio source when current song changes
   React.useEffect(() => {
     if (currentSong?.url) {
+      console.log("Setting audio source for:", currentSong.title);
       setAudioSource(currentSong.url);
-      if (isPlaying) {
-        // Play after a short delay to ensure audio is loaded
-        setTimeout(() => play(), 100);
-      }
     }
-  }, [currentSong, setAudioSource, play]);
+  }, [currentSong, setAudioSource]);
 
-  // Handle play/pause
+  // Handle play/pause state changes
   React.useEffect(() => {
     if (isPlaying && currentSong) {
+      console.log("Attempting to play:", currentSong.title);
       play();
-    } else {
+    } else if (!isPlaying) {
       pause();
     }
   }, [isPlaying, currentSong, play, pause]);
@@ -71,9 +69,9 @@ const App = () => {
 
   // Handle progress updates from audio element
   const handleAudioProgress = React.useCallback(() => {
-    if (audioRef.current && audioRef.current.duration) {
+    if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
       const newProgress = audioRef.current.currentTime / audioRef.current.duration;
-      setProgress(Math.min(1, newProgress));
+      setProgress(Math.min(1, Math.max(0, newProgress)));
     }
   }, [setProgress, audioRef]);
 
@@ -84,8 +82,8 @@ const App = () => {
 
     audio.addEventListener("timeupdate", handleAudioProgress);
     audio.addEventListener("ended", playNext);
-    audio.addEventListener("error", () => {
-      console.error("Audio playback error");
+    audio.addEventListener("error", (e) => {
+      console.error("Audio element error:", e);
       playNext(); // Skip to next song on error
     });
 
