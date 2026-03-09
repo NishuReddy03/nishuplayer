@@ -1,4 +1,6 @@
 // Music Player Store with Zustand-like pattern
+import React from "react";
+
 const createStore = (initializer) => {
   let state = undefined;
   const listeners = new Set();
