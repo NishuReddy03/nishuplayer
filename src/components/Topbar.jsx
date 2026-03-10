@@ -49,7 +49,13 @@ const Topbar = ({ theme, toggleTheme, searchQuery, setSearchQuery }) => {
           className="search-input"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
         />
+        {searchQuery && (
+          <button className="clear-search" onClick={() => setSearchQuery("")} style={{ background: "none", border: "none", color: "var(--text-soft)", cursor: "pointer", padding: "0 8px", fontSize: "18px" }}>
+            &times;
+          </button>
+        )}
       </div>
 
       <div className="topbar-actions">

@@ -57,6 +57,13 @@ const HeartIcon = ({ size = 24, filled = false }) => (
   </svg>
 );
 
+const AutoplayIcon = ({ size = 24, active = false }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M10 8l6 4-6 4V8z" fill={active ? "white" : "currentColor"} />
+  </svg>
+);
+
 const PlayerBar = () => {
   const {
     currentSong,
@@ -65,6 +72,7 @@ const PlayerBar = () => {
     progress,
     isShuffle,
     isRepeat,
+    autoplay,
     favoriteSongs,
     togglePlayPause,
     playNext,
@@ -72,6 +80,7 @@ const PlayerBar = () => {
     setVolume,
     toggleShuffle,
     toggleRepeat,
+    toggleAutoplay,
     toggleFavorite,
     setProgress,
   } = useMusicStoreWithActions();
@@ -175,6 +184,14 @@ const PlayerBar = () => {
             title="Toggle repeat"
           >
             <RepeatIcon size={18} active={isRepeat} />
+          </button>
+
+          <button
+            className={`control-btn small ${autoplay ? "active" : ""}`}
+            onClick={toggleAutoplay}
+            title="Toggle autoplay (related songs)"
+          >
+            <AutoplayIcon size={18} active={autoplay} />
           </button>
         </div>
 

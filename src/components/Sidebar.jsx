@@ -46,13 +46,18 @@ const GlobeIcon = ({ size = 24 }) => (
   </svg>
 );
 
-const Sidebar = () => {
-  const [activeNav, setActiveNav] = React.useState("home");
+// History Icon
+const HistoryIcon = ({ size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
 
+const Sidebar = ({ activeNav, setActiveNav }) => {
   return (
     <div className="sidebar">
       <div className="logo-container">
-        <h2>NishuPlayer</h2>
+        <h2 onClick={() => setActiveNav("home")} style={{ cursor: "pointer" }}>NishuPlayer</h2>
       </div>
 
       <div className="nav-section">
@@ -82,23 +87,43 @@ const Sidebar = () => {
       </div>
 
       <div className="nav-section">
+        <h3 className="nav-section-title">Your Collections</h3>
         <ul>
-          <li className="nav-item">
-            <PlusIcon size={24} />
-            <span>Create Playlist</span>
-          </li>
-          <li className="nav-item">
+          <li
+            className={`nav-item ${activeNav === "liked" ? "active" : ""}`}
+            onClick={() => setActiveNav("liked")}
+          >
             <HeartIcon size={24} />
             <span>Liked Songs</span>
+          </li>
+          <li
+            className={`nav-item ${activeNav === "history" ? "active" : ""}`}
+            onClick={() => setActiveNav("history")}
+          >
+            <HistoryIcon size={24} />
+            <span>Recently Played</span>
           </li>
         </ul>
       </div>
 
-      <div className="playlist-scroll" />
-
-      <div className="language-selector">
-        <GlobeIcon size={20} />
-        <span>English</span>
+      <div className="nav-section">
+        <h3 className="nav-section-title">Explore</h3>
+        <ul>
+          <li
+            className={`nav-item ${activeNav === "trending" ? "active" : ""}`}
+            onClick={() => setActiveNav("trending")}
+          >
+            <GlobeIcon size={24} />
+            <span>Trending Now</span>
+          </li>
+          <li
+            className={`nav-item ${activeNav === "new-releases" ? "active" : ""}`}
+            onClick={() => setActiveNav("new-releases")}
+          >
+            <PlusIcon size={24} />
+            <span>New Releases</span>
+          </li>
+        </ul>
       </div>
     </div>
   );

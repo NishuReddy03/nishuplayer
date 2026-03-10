@@ -5,11 +5,11 @@ const createStore = (initializer) => {
   let state = undefined;
   const listeners = new Set();
 
-  const setState = (updater, replace) => {
-    const newState = typeof updater === "function" ? updater(state) : updater;
-    if (!Object.is(newState, state)) {
+  const setState = (updater, replace = false) => {
+    const nextState = typeof updater === "function" ? updater(state) : updater;
+    if (!Object.is(nextState, state)) {
       const previousState = state;
-      state = replace ? (typeof newState === "object" && newState !== null ? newState : Object.assign({}, state, newState)) : newState;
+      state = replace ? nextState : (typeof nextState === "object" && nextState !== null ? { ...state, ...nextState } : nextState);
       listeners.forEach((listener) => listener(state, previousState));
     }
   };
@@ -28,7 +28,8 @@ const createStore = (initializer) => {
 
 export const musicStore = createStore((setState, getState) => {
   const favoriteSongs = JSON.parse(localStorage.getItem("nishu_favorites") || "[]");
-  
+  const history = JSON.parse(localStorage.getItem("nishu_history") || "[]");
+
   return {
     currentSong: null,
     queue: [],
@@ -37,23 +38,38 @@ export const musicStore = createStore((setState, getState) => {
     progress: 0,
     isShuffle: false,
     isRepeat: false,
-    favoriteSongs,
+    autoplay: true,
+    favoriteSongs: Array.isArray(favoriteSongs) ? favoriteSongs : [],
+    history: Array.isArray(history) ? history : [],
+    trendingSongs: [],
+    newReleases: [],
+    activeLanguage: "hindi",
+    searchPage: 0,
     playlists: [],
 
     // Action: Play a song
     playSong: (song, queue = null) => {
-      setState((state) => ({
-        currentSong: song,
-        queue: queue || state.queue,
-        isPlaying: true,
-        progress: 0,
-      }));
+      if (!song) return;
+
+      setState((state) => {
+        // Add to history
+        const newHistory = [song, ...state.history.filter((s) => s.id !== song.id)].slice(0, 50);
+        localStorage.setItem("nishu_history", JSON.stringify(newHistory));
+
+        return {
+          currentSong: song,
+          queue: queue || state.queue,
+          isPlaying: true,
+          progress: 0,
+          history: newHistory,
+        };
+      });
     },
 
     // Action: Play next song
-    playNext: () => {
+    playNext: async () => {
       const state = getState();
-      const { queue, currentSong, isShuffle, isRepeat } = state;
+      const { queue, currentSong, isShuffle, isRepeat, autoplay } = state;
 
       if (!currentSong || queue.length === 0) return;
 
@@ -63,27 +79,39 @@ export const musicStore = createStore((setState, getState) => {
         return;
       }
 
+      let nextSong = null;
+      const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
+
       if (isShuffle) {
         // Play random song
         const randomIndex = Math.floor(Math.random() * queue.length);
-        setState({
-          currentSong: queue[randomIndex],
-          progress: 0,
-          isPlaying: true,
-        });
-        return;
+        nextSong = queue[randomIndex];
+      } else {
+        // Play next song in queue
+        const nextIndex = currentIndex + 1;
+
+        if (nextIndex < queue.length) {
+          nextSong = queue[nextIndex];
+        }
       }
 
-      // Play next song in queue
-      const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
-      const nextIndex = currentIndex + 1;
-
-      if (nextIndex < queue.length) {
-        setState({
-          currentSong: queue[nextIndex],
-          progress: 0,
-          isPlaying: true,
-        });
+      if (nextSong) {
+        // Use playSong to ensure it's added to history
+        state.playSong(nextSong, queue);
+      } else if (autoplay) {
+        // Queue ended, try autoplay
+        try {
+          const { getSongSuggestions } = await import("./api");
+          const suggestions = await getSongSuggestions(currentSong.id);
+          if (suggestions && suggestions.length > 0) {
+            state.playSong(suggestions[0], suggestions);
+          } else {
+            setState({ isPlaying: false, progress: 0 });
+          }
+        } catch (error) {
+          console.error("Autoplay failed:", error);
+          setState({ isPlaying: false, progress: 0 });
+        }
       } else {
         // End of queue
         setState({ isPlaying: false, progress: 0 });
@@ -108,11 +136,7 @@ export const musicStore = createStore((setState, getState) => {
       const previousIndex = currentIndex - 1;
 
       if (previousIndex >= 0) {
-        setState({
-          currentSong: queue[previousIndex],
-          progress: 0,
-          isPlaying: true,
-        });
+        state.playSong(queue[previousIndex], queue);
       } else {
         setState({ progress: 0 });
       }
@@ -140,16 +164,72 @@ export const musicStore = createStore((setState, getState) => {
 
     // Action: Toggle favorite
     toggleFavorite: (song) => {
+      if (!song) return;
       setState((state) => {
         const isFavorite = state.favoriteSongs.some((s) => s.id === song.id);
         const newFavorites = isFavorite
           ? state.favoriteSongs.filter((s) => s.id !== song.id)
           : [...state.favoriteSongs, song];
-        
+
         localStorage.setItem("nishu_favorites", JSON.stringify(newFavorites));
         return { favoriteSongs: newFavorites };
       });
     },
+
+    // Action: Toggle autoplay
+    toggleAutoplay: () => setState((state) => ({ autoplay: !state.autoplay })),
+
+    // Action: Fetch trending
+    fetchTrending: async (language) => {
+      try {
+        const { getTrending } = await import("./api");
+        const songs = await getTrending(language);
+        setState({
+          trendingSongs: songs,
+          activeLanguage: language
+        });
+      } catch (error) {
+        console.error("Fetch trending failed:", error);
+      }
+    },
+
+    // Action: Fetch new releases
+    fetchNewReleases: async (language) => {
+      try {
+        const { getNewReleases } = await import("./api");
+        const songs = await getNewReleases(language);
+        setState({
+          newReleases: songs,
+          activeLanguage: language
+        });
+      } catch (error) {
+        console.error("Fetch new releases failed:", error);
+      }
+    },
+
+    // Action: Set active language
+    setLanguage: (lang) => setState({ activeLanguage: lang }),
+
+    // Action: Load more search results
+    loadMoreSearchResults: async (query) => {
+      const state = getState();
+      const nextPage = state.searchPage + 1;
+      try {
+        const { searchSongs } = await import("./api");
+        const moreSongs = await searchSongs(query, nextPage);
+        if (moreSongs.length > 0) {
+          setState({
+            queue: [...state.queue, ...moreSongs],
+            searchPage: nextPage,
+          });
+        }
+      } catch (error) {
+        console.error("Load more failed:", error);
+      }
+    },
+
+    // Action: Reset search page
+    resetSearchPage: () => setState({ searchPage: 0 }),
   };
 });
 
@@ -180,7 +260,13 @@ export const useMusicStoreWithActions = () => {
     setProgress: s.setProgress,
     toggleShuffle: s.toggleShuffle,
     toggleRepeat: s.toggleRepeat,
+    toggleAutoplay: s.toggleAutoplay,
     toggleFavorite: s.toggleFavorite,
+    fetchTrending: s.fetchTrending,
+    fetchNewReleases: s.fetchNewReleases,
+    setLanguage: s.setLanguage,
+    loadMoreSearchResults: s.loadMoreSearchResults,
+    resetSearchPage: s.resetSearchPage,
   }));
 
   return { ...state, ...actions };

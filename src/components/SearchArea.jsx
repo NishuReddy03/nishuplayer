@@ -22,6 +22,7 @@ const SearchArea = ({ searchQuery }) => {
   const [songs, setSongs] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [loadingMore, setLoadingMore] = React.useState(false);
 
   // Search for songs when query changes
   React.useEffect(() => {
@@ -35,7 +36,7 @@ const SearchArea = ({ searchQuery }) => {
       setError("");
 
       try {
-        const results = await searchSongs(searchQuery);
+        const results = await searchSongs(searchQuery, 0);
         setSongs(results);
       } catch (err) {
         setError("Failed to fetch songs. Please try again later.");
@@ -48,16 +49,37 @@ const SearchArea = ({ searchQuery }) => {
     return () => clearTimeout(searchTimeout);
   }, [searchQuery]);
 
+  const handleLoadMore = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = Math.floor(songs.length / 20);
+      const moreSongs = await searchSongs(searchQuery, nextPage);
+      if (moreSongs.length > 0) {
+        setSongs((prev) => [...prev, ...moreSongs]);
+      }
+    } catch (err) {
+      console.error("Load more error:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const handlePlaySong = (song) => {
     playSong(song, songs);
   };
 
   // Home view
   if (!searchQuery) {
+    const hour = new Date().getHours();
+    let greeting = "Good evening";
+    if (hour < 12) greeting = "Good morning";
+    else if (hour < 18) greeting = "Good afternoon";
+
     return (
       <div className="main-area-content">
         <div className="home-section">
-          <h1 className="greeting">Good evening</h1>
+          <h1 className="greeting">{greeting}</h1>
           <p className="subtitle">Search for a song, artist, or album to start listening.</p>
           <div className="placeholder-banner">
             <div className="banner-content">
@@ -91,7 +113,13 @@ const SearchArea = ({ searchQuery }) => {
             >
               <div className="song-image-container">
                 <img src={song.image} alt={song.title} className="song-image" />
-                <button className="card-play-btn">
+                <button
+                  className="card-play-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePlaySong(song);
+                  }}
+                >
                   <PlayIcon size={24} />
                 </button>
               </div>
@@ -102,6 +130,29 @@ const SearchArea = ({ searchQuery }) => {
             </div>
           ))}
         </div>
+
+        {songs.length > 0 && (
+          <div className="load-more-container" style={{ textAlign: "center", marginTop: "2rem", paddingBottom: "2rem" }}>
+            <button
+              className="load-more-btn"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              style={{
+                backgroundColor: "var(--primary-color)",
+                color: "white",
+                border: "none",
+                padding: "0.8rem 2rem",
+                borderRadius: "500px",
+                fontWeight: "bold",
+                cursor: loadingMore ? "not-allowed" : "pointer",
+                opacity: loadingMore ? 0.7 : 1,
+                fontSize: "1rem"
+              }}
+            >
+              {loadingMore ? "Loading more..." : "Load More Results"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
