@@ -38,24 +38,43 @@ const UserIcon = ({ size = 24 }) => (
   </svg>
 );
 
-const Topbar = ({ theme, toggleTheme, searchQuery, setSearchQuery }) => {
+// Menu Icon
+const MenuIcon = ({ size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+);
+
+const Topbar = ({ theme, toggleTheme, searchQuery, setSearchQuery, isMobileMenuOpen, setIsMobileMenuOpen }) => {
   return (
     <div className="topbar">
-      <div className="search-container">
-        <SearchIcon className="search-icon" size={20} />
-        <input
-          type="text"
-          placeholder="What do you want to listen to?"
-          className="search-input"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
-        />
-        {searchQuery && (
-          <button className="clear-search" onClick={() => setSearchQuery("")} style={{ background: "none", border: "none", color: "var(--text-soft)", cursor: "pointer", padding: "0 8px", fontSize: "18px" }}>
-            &times;
-          </button>
-        )}
+      <div className="topbar-left">
+        <button
+          className="mobile-menu-btn"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          title="Toggle menu"
+        >
+          <MenuIcon size={20} />
+        </button>
+
+        <div className="search-container">
+          <SearchIcon className="search-icon" size={20} />
+          <input
+            type="text"
+            placeholder="What do you want to listen to?"
+            className="search-input"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+          />
+          {searchQuery && (
+            <button className="clear-search" onClick={() => setSearchQuery("")} style={{ background: "none", border: "none", color: "var(--color-text-muted)", cursor: "pointer", padding: "0 8px", fontSize: "18px" }}>
+              &times;
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="topbar-actions">

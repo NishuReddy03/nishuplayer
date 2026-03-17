@@ -53,32 +53,36 @@ const HistoryIcon = ({ size = 24 }) => (
   </svg>
 );
 
-const Sidebar = ({ activeNav, setActiveNav }) => {
+const Sidebar = ({ activeNav, setActiveNav, onNavClick }) => {
+  const handleNavClick = (nav) => {
+    setActiveNav(nav);
+    if (onNavClick) onNavClick();
+  };
   return (
     <div className="sidebar">
       <div className="logo-container">
-        <h2 onClick={() => setActiveNav("home")} style={{ cursor: "pointer" }}>NishuPlayer</h2>
+        <h2 onClick={() => handleNavClick("home")} style={{ cursor: "pointer" }}>NishuPlayer</h2>
       </div>
 
       <div className="nav-section">
         <ul>
           <li
             className={`nav-item ${activeNav === "home" ? "active" : ""}`}
-            onClick={() => setActiveNav("home")}
+            onClick={() => handleNavClick("home")}
           >
             <HomeIcon size={24} />
             <span>Home</span>
           </li>
           <li
             className={`nav-item ${activeNav === "search" ? "active" : ""}`}
-            onClick={() => setActiveNav("search")}
+            onClick={() => handleNavClick("search")}
           >
             <SearchIcon size={24} />
             <span>Search</span>
           </li>
           <li
             className={`nav-item ${activeNav === "library" ? "active" : ""}`}
-            onClick={() => setActiveNav("library")}
+            onClick={() => handleNavClick("library")}
           >
             <LibraryIcon size={24} />
             <span>Your Library</span>
@@ -91,14 +95,14 @@ const Sidebar = ({ activeNav, setActiveNav }) => {
         <ul>
           <li
             className={`nav-item ${activeNav === "liked" ? "active" : ""}`}
-            onClick={() => setActiveNav("liked")}
+            onClick={() => handleNavClick("liked")}
           >
             <HeartIcon size={24} />
             <span>Liked Songs</span>
           </li>
           <li
             className={`nav-item ${activeNav === "history" ? "active" : ""}`}
-            onClick={() => setActiveNav("history")}
+            onClick={() => handleNavClick("history")}
           >
             <HistoryIcon size={24} />
             <span>Recently Played</span>
@@ -111,14 +115,14 @@ const Sidebar = ({ activeNav, setActiveNav }) => {
         <ul>
           <li
             className={`nav-item ${activeNav === "trending" ? "active" : ""}`}
-            onClick={() => setActiveNav("trending")}
+            onClick={() => handleNavClick("trending")}
           >
             <GlobeIcon size={24} />
             <span>Trending Now</span>
           </li>
           <li
             className={`nav-item ${activeNav === "new-releases" ? "active" : ""}`}
-            onClick={() => setActiveNav("new-releases")}
+            onClick={() => handleNavClick("new-releases")}
           >
             <PlusIcon size={24} />
             <span>New Releases</span>

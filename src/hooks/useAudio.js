@@ -3,6 +3,38 @@ import React from "react";
 export const useAudio = () => {
   const audioRef = React.useRef(null);
   const [isAudioContextReady, setIsAudioContextReady] = React.useState(false);
+  const [isMobileAudioBlocked, setIsMobileAudioBlocked] = React.useState(false);
+  const [userInteracted, setUserInteracted] = React.useState(false);
+
+  // Detect mobile devices
+  const isMobile = React.useMemo(() => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           (window.innerWidth <= 768 && window.innerHeight <= 1024);
+  }, []);
+
+  // Handle user interaction for mobile
+  React.useEffect(() => {
+    if (!isMobile) return;
+
+    const handleUserInteraction = () => {
+      setUserInteracted(true);
+      // Try to resume any audio context
+      if (audioRef.current && audioRef.current.paused === false) {
+        // Audio is already playing, good
+      }
+      // Remove listeners after first interaction
+      document.removeEventListener('touchstart', handleUserInteraction);
+      document.removeEventListener('click', handleUserInteraction);
+    };
+
+    document.addEventListener('touchstart', handleUserInteraction, { once: true });
+    document.addEventListener('click', handleUserInteraction, { once: true });
+
+    return () => {
+      document.removeEventListener('touchstart', handleUserInteraction);
+      document.removeEventListener('click', handleUserInteraction);
+    };
+  }, [isMobile]);
 
   // Initialize audio element
   React.useEffect(() => {
@@ -66,7 +98,14 @@ export const useAudio = () => {
   const play = React.useCallback(async () => {
     if (!audioRef.current) {
       console.error("No audio element available");
-      return;
+      return false;
+    }
+
+    // On mobile, ensure user has interacted
+    if (isMobile && !userInteracted) {
+      console.warn("Mobile: Waiting for user interaction before playing audio");
+      setIsMobileAudioBlocked(true);
+      return false;
     }
 
     // Wait for audio to be ready if it's not loaded yet
@@ -78,7 +117,7 @@ export const useAudio = () => {
           resolve();
         };
         audioRef.current.addEventListener("canplay", onCanPlay);
-        
+
         // Timeout after 10 seconds
         setTimeout(() => {
           audioRef.current.removeEventListener("canplay", onCanPlay);
@@ -92,19 +131,41 @@ export const useAudio = () => {
       if (audioRef.current.paused || audioRef.current.ended) {
         await audioRef.current.play();
         console.log("Audio started playing");
+
+        // On mobile, check if audio is actually audible after a short delay
+        if (isMobile) {
+          setTimeout(() => {
+            if (audioRef.current && !audioRef.current.paused && audioRef.current.volume === 0) {
+              console.warn("Mobile: Audio appears muted, user may need to adjust volume");
+              setIsMobileAudioBlocked(true);
+            } else {
+              setIsMobileAudioBlocked(false);
+            }
+          }, 500);
+        }
+
+        return true;
       }
+      return true;
     } catch (error) {
       console.error("Play failed:", error);
+
       // If autoplay is blocked, we need user interaction
       if (error.name === "NotAllowedError") {
         console.warn("Autoplay blocked - requires user interaction");
-        // You might want to show a play button or message to user
+        if (isMobile) {
+          setIsMobileAudioBlocked(true);
+        }
+        return false;
       } else if (error.name === "AbortError") {
         console.warn("Play aborted, will retry after load completes");
         // Wait for canplay and retry
         const retryPlay = () => {
           if (audioRef.current && (audioRef.current.paused || audioRef.current.ended)) {
-            audioRef.current.play().catch(e => console.error("Retry play failed:", e));
+            audioRef.current.play().catch(e => {
+              console.error("Retry play failed:", e);
+              if (isMobile) setIsMobileAudioBlocked(true);
+            });
           }
         };
         audioRef.current.addEventListener("canplay", retryPlay, { once: true });
@@ -112,9 +173,11 @@ export const useAudio = () => {
         setTimeout(() => {
           audioRef.current?.removeEventListener("canplay", retryPlay);
         }, 5000);
+        return false;
       }
+      return false;
     }
-  }, []);
+  }, [isMobile, userInteracted]);
 
   // Pause audio
   const pause = React.useCallback(() => {
@@ -158,5 +221,8 @@ export const useAudio = () => {
     seek,
     getCurrentTime,
     getDuration,
+    isMobile,
+    isMobileAudioBlocked,
+    userInteracted,
   };
 };

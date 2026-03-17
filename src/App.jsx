@@ -17,6 +17,12 @@ const App = () => {
   // Navigation state
   const [activeNav, setActiveNav] = React.useState("home");
 
+  // Mobile menu state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+
+  // Mobile audio message state
+  const [showMobileAudioMessage, setShowMobileAudioMessage] = React.useState(false);
+
   // Search state
   const [searchQuery, setSearchQuery] = React.useState("");
 
@@ -56,6 +62,9 @@ const App = () => {
     pause,
     setVolume: setAudioVolume,
     seek,
+    isMobile,
+    isMobileAudioBlocked,
+    userInteracted,
   } = useAudio();
 
   // Apply theme
@@ -73,10 +82,12 @@ const App = () => {
     }
   }, [activeNav, activeLanguage, fetchTrending, fetchNewReleases]);
 
-  // Load trending songs on initial load
+  // Sync mobile audio blocked state
   React.useEffect(() => {
-    fetchTrending(activeLanguage);
-  }, [fetchTrending, activeLanguage]);
+    if (isMobile && isMobileAudioBlocked) {
+      setShowMobileAudioMessage(true);
+    }
+  }, [isMobile, isMobileAudioBlocked]);
 
   // Set audio source when current song changes
   React.useEffect(() => {
@@ -91,13 +102,21 @@ const App = () => {
 
   // Handle play/pause state changes
   React.useEffect(() => {
-    if (isPlaying && currentSong?.url) {
-      console.log("Attempting to play:", currentSong.title);
-      play();
-    } else if (!isPlaying) {
-      pause();
-    }
-  }, [isPlaying, currentSong, play, pause]);
+    const handlePlayPause = async () => {
+      if (isPlaying && currentSong?.url) {
+        console.log("Attempting to play:", currentSong.title);
+        const playSuccess = await play();
+        if (playSuccess === false && isMobile) {
+          // On mobile, if play fails, keep the UI showing as playing but show blocked message
+          console.warn("Mobile audio blocked, keeping UI in playing state");
+        }
+      } else if (!isPlaying) {
+        pause();
+      }
+    };
+
+    handlePlayPause();
+  }, [isPlaying, currentSong, play, pause, isMobile]);
 
   // Handle volume changes
   React.useEffect(() => {
@@ -215,9 +234,12 @@ const App = () => {
 
   return (
     <div className="app-container">
-      <div className="sidebar-area">
-        <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} />
+      <div className={`sidebar-area ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
+        <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} onNavClick={() => setIsMobileMenuOpen(false)} />
       </div>
+
+      {/* Mobile overlay */}
+      {isMobileMenuOpen && <div className="mobile-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
 
       <div className="topbar-area">
         <Topbar
@@ -225,12 +247,44 @@ const App = () => {
           toggleTheme={toggleTheme}
           searchQuery={searchQuery}
           setSearchQuery={handleSearchChange}
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
         />
       </div>
 
       <div className="main-area">
         {renderMainContent()}
       </div>
+
+      {/* Mobile Audio Blocked Message */}
+      {isMobile && showMobileAudioMessage && (
+        <div className="mobile-audio-message">
+          <div className="mobile-audio-content">
+            <button
+              className="mobile-audio-close"
+              onClick={() => setShowMobileAudioMessage(false)}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <div className="mobile-audio-icon">🔊</div>
+            <h3>Enable Audio Playback</h3>
+            <p>Mobile browsers require user interaction to play audio. Tap anywhere on the screen to enable sound.</p>
+            <button
+              className="mobile-audio-btn"
+              onClick={() => {
+                // Try to play again
+                if (currentSong?.url) {
+                  play();
+                }
+                setShowMobileAudioMessage(false);
+              }}
+            >
+              Enable Audio
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="player-area">
         <PlayerBar />
