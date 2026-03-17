@@ -83,6 +83,7 @@ const PlayerBar = () => {
     toggleAutoplay,
     toggleFavorite,
     setProgress,
+    seekTo,
   } = useMusicStoreWithActions();
 
   const formatTime = (seconds) => {

@@ -156,6 +156,9 @@ export const musicStore = createStore((setState, getState) => {
     // Action: Set progress
     setProgress: (progress) => setState({ progress }),
 
+    // Action: Seek to position
+    seekTo: (progress) => setState({ progress }),
+
     // Action: Toggle shuffle
     toggleShuffle: () => setState((state) => ({ isShuffle: !state.isShuffle })),
 
@@ -258,6 +261,7 @@ export const useMusicStoreWithActions = () => {
     togglePlayPause: s.togglePlayPause,
     setVolume: s.setVolume,
     setProgress: s.setProgress,
+    seekTo: s.seekTo,
     toggleShuffle: s.toggleShuffle,
     toggleRepeat: s.toggleRepeat,
     toggleAutoplay: s.toggleAutoplay,

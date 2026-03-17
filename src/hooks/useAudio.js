@@ -8,7 +8,8 @@ export const useAudio = () => {
   React.useEffect(() => {
     if (!audioRef.current) {
       const audio = new Audio();
-      audio.crossOrigin = "anonymous";
+      // Remove crossOrigin to avoid potential issues
+      // audio.crossOrigin = "anonymous";
       audio.preload = "metadata";
       audio.volume = 1;
 
@@ -36,11 +37,8 @@ export const useAudio = () => {
 
       // Handle stalled
       audio.addEventListener("stalled", () => {
-        console.warn("Audio stalled, retrying...");
-        // Try to reload the audio
-        if (audio.src) {
-          audio.load();
-        }
+        console.warn("Audio stalled");
+        // Note: Removed automatic reload as it can interrupt playback
       });
 
       audioRef.current = audio;
@@ -71,9 +69,27 @@ export const useAudio = () => {
       return;
     }
 
+    // Wait for audio to be ready if it's not loaded yet
+    if (audioRef.current.readyState < 2) { // HAVE_CURRENT_DATA or higher
+      console.log("Audio not ready, waiting for canplay event");
+      await new Promise((resolve) => {
+        const onCanPlay = () => {
+          audioRef.current.removeEventListener("canplay", onCanPlay);
+          resolve();
+        };
+        audioRef.current.addEventListener("canplay", onCanPlay);
+        
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          audioRef.current.removeEventListener("canplay", onCanPlay);
+          resolve();
+        }, 10000);
+      });
+    }
+
     try {
       // Check if we need user interaction
-      if (audioRef.current.paused) {
+      if (audioRef.current.paused || audioRef.current.ended) {
         await audioRef.current.play();
         console.log("Audio started playing");
       }
@@ -83,6 +99,19 @@ export const useAudio = () => {
       if (error.name === "NotAllowedError") {
         console.warn("Autoplay blocked - requires user interaction");
         // You might want to show a play button or message to user
+      } else if (error.name === "AbortError") {
+        console.warn("Play aborted, will retry after load completes");
+        // Wait for canplay and retry
+        const retryPlay = () => {
+          if (audioRef.current && (audioRef.current.paused || audioRef.current.ended)) {
+            audioRef.current.play().catch(e => console.error("Retry play failed:", e));
+          }
+        };
+        audioRef.current.addEventListener("canplay", retryPlay, { once: true });
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          audioRef.current?.removeEventListener("canplay", retryPlay);
+        }, 5000);
       }
     }
   }, []);

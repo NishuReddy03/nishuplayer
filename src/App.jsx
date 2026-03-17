@@ -73,6 +73,11 @@ const App = () => {
     }
   }, [activeNav, activeLanguage, fetchTrending, fetchNewReleases]);
 
+  // Load trending songs on initial load
+  React.useEffect(() => {
+    fetchTrending(activeLanguage);
+  }, [fetchTrending, activeLanguage]);
+
   // Set audio source when current song changes
   React.useEffect(() => {
     if (currentSong?.url) {
@@ -101,9 +106,13 @@ const App = () => {
 
   // Handle progress updates from audio element
   const handleAudioProgress = React.useCallback(() => {
-    if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
-      const newProgress = audioRef.current.currentTime / audioRef.current.duration;
-      setProgress(Math.min(1, Math.max(0, newProgress)));
+    if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration) && audioRef.current.duration > 0) {
+      const currentTime = audioRef.current.currentTime;
+      const duration = audioRef.current.duration;
+      const newProgress = currentTime / duration;
+      if (!isNaN(newProgress)) {
+        setProgress(Math.min(1, Math.max(0, newProgress)));
+      }
     }
   }, [setProgress, audioRef]);
 
@@ -187,7 +196,20 @@ const App = () => {
         return <SearchArea searchQuery={searchQuery} onPlaySong={playSong} />;
       case "home":
       default:
-        return <SearchArea searchQuery="" onPlaySong={playSong} />;
+        return (
+          <div className="main-area-content">
+            <CollectionHeader
+              title="Trending Now"
+              activeLanguage={activeLanguage}
+              onLanguageChange={setLanguage}
+            />
+            <SongListView
+              title=""
+              songs={trendingSongs}
+              onPlay={(s) => playSong(s, trendingSongs)}
+            />
+          </div>
+        );
     }
   };
 
