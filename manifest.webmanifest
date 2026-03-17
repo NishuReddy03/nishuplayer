@@ -1,1 +1,57 @@
-{"name":"NishuPlayer","short_name":"Nishu","description":"Modern, High-Quality Music Player","start_url":"/","display":"standalone","background_color":"#000000","theme_color":"#121212","lang":"en","scope":"/","icons":[{"src":"pwa-192x192.png","sizes":"192x192","type":"image/png"},{"src":"pwa-512x512.png","sizes":"512x512","type":"image/png"},{"src":"pwa-512x512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}
+{
+  "name": "NishuPlayer - Music Player",
+  "short_name": "NishuPlayer",
+  "description": "Modern, High-Quality Music Player with offline support",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#1db954",
+  "lang": "en",
+  "scope": "/",
+  "categories": ["music", "entertainment"],
+  "icons": [
+    {
+      "src": "pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Trending Songs",
+      "short_name": "Trending",
+      "description": "Browse trending music",
+      "url": "/?section=trending",
+      "icons": [{ "src": "pwa-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "New Releases",
+      "short_name": "New",
+      "description": "Check out new music releases",
+      "url": "/?section=new-releases",
+      "icons": [{ "src": "pwa-192x192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "screenshot-tablet.png",
+      "sizes": "768x1024",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ]
+}

@@ -888,6 +888,16 @@ ul {
   background-color: var(--color-primary-hover);
 }
 
+.mobile-audio-btn.secondary {
+  background-color: var(--color-bg-highlight);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.mobile-audio-btn.secondary:hover {
+  background-color: var(--color-bg-elevated);
+}
+
 /* ==================== RESPONSIVE ==================== */
 
 /* Tablet and larger screens */
@@ -916,6 +926,16 @@ ul {
 
   .sidebar-area {
     width: 280px;
+    position: fixed;
+    left: -280px;
+    top: 0;
+    height: 100vh;
+    z-index: 1000;
+    transition: left 0.3s ease;
+  }
+
+  .sidebar-area.mobile-open {
+    left: 0;
   }
 
   .mobile-menu-btn {
@@ -1053,6 +1073,26 @@ ul {
 
   .banner-content p {
     font-size: 1rem;
+  }
+
+  /* Better touch targets for mobile */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .song-card {
+    cursor: pointer;
+  }
+
+  .card-play-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  /* Improve text readability on mobile */
+  .song-title, .song-artist {
+    line-height: 1.2;
   }
 }
 

@@ -11,26 +11,39 @@ export const useAudio = () => {
   const [userInteracted, setUserInteracted] = React.useState(false);
   const [isUsingWebAudio, setIsUsingWebAudio] = React.useState(false);
 
-  // Detect mobile devices
+  // Detect mobile devices - improved detection
   const isMobile = React.useMemo(() => {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-           (window.innerWidth <= 768 && window.innerHeight <= 1024);
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent) ||
+                          (window.innerWidth <= 768 && window.innerHeight <= 1024);
+
+    // Also check for touch capability
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+    return isMobileDevice || hasTouch;
   }, []);
 
-  // Initialize Web Audio API for mobile
+  // Initialize Web Audio API for mobile with better error handling
   const initializeWebAudio = React.useCallback(async () => {
     if (!isMobile || audioContextRef.current) return;
 
     try {
-      // Create AudioContext
+      // Create AudioContext with better compatibility
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) {
+        console.warn("Web Audio API not supported, falling back to HTML5 Audio");
+        setIsUsingWebAudio(false);
+        return;
+      }
+
       audioContextRef.current = new AudioContextClass();
 
       // Create gain node for volume control
       gainNodeRef.current = audioContextRef.current.createGain();
+      gainNodeRef.current.gain.value = 1;
       gainNodeRef.current.connect(audioContextRef.current.destination);
 
-      console.log("Web Audio API initialized for mobile");
+      console.log("Web Audio API initialized for mobile device");
       setIsUsingWebAudio(true);
     } catch (error) {
       console.error("Failed to initialize Web Audio API:", error);
@@ -54,28 +67,42 @@ export const useAudio = () => {
     }
   }, []);
 
-  // Handle user interaction for mobile
+  // Handle user interaction for mobile with multiple event types
   React.useEffect(() => {
     if (!isMobile) return;
 
-    const handleUserInteraction = async () => {
+    const handleUserInteraction = async (event) => {
+      console.log("User interaction detected:", event.type);
       setUserInteracted(true);
-      await initializeWebAudio();
+
+      // Initialize Web Audio if not already done
+      if (!isUsingWebAudio) {
+        await initializeWebAudio();
+      }
+
+      // Resume AudioContext
       await resumeAudioContext();
 
       // Remove listeners after first interaction
       document.removeEventListener('touchstart', handleUserInteraction);
+      document.removeEventListener('touchend', handleUserInteraction);
       document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
     };
 
+    // Add multiple event listeners for better mobile support
     document.addEventListener('touchstart', handleUserInteraction, { once: true });
+    document.addEventListener('touchend', handleUserInteraction, { once: true });
     document.addEventListener('click', handleUserInteraction, { once: true });
+    document.addEventListener('keydown', handleUserInteraction, { once: true });
 
     return () => {
       document.removeEventListener('touchstart', handleUserInteraction);
       document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('touchend', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
     };
-  }, [isMobile, initializeWebAudio, resumeAudioContext]);
+  }, [isMobile, isUsingWebAudio, initializeWebAudio, resumeAudioContext]);
 
   // Initialize audio element
   React.useEffect(() => {
@@ -191,28 +218,26 @@ export const useAudio = () => {
         await audioRef.current.play();
         console.log("Audio started playing");
 
-        // On mobile, check if audio is actually audible after a short delay
+        // On mobile, verify audio is actually working
         if (isMobile) {
           setTimeout(() => {
             if (audioRef.current && !audioRef.current.paused) {
-              // For Web Audio, check if context is running
+              // Check if audio context is running for Web Audio
               if (isUsingWebAudio) {
                 if (audioContextRef.current && audioContextRef.current.state === 'running') {
                   setIsMobileAudioBlocked(false);
+                  console.log("Web Audio playback confirmed");
                 } else {
                   setIsMobileAudioBlocked(true);
+                  console.warn("Web Audio context not running");
                 }
               } else {
-                // For HTML5 Audio fallback, check volume
-                if (audioRef.current.volume === 0) {
-                  console.warn("Mobile: Audio appears muted, user may need to adjust volume");
-                  setIsMobileAudioBlocked(true);
-                } else {
-                  setIsMobileAudioBlocked(false);
-                }
+                // For HTML5 Audio fallback, check basic playback
+                setIsMobileAudioBlocked(false);
+                console.log("HTML5 Audio playback confirmed");
               }
             }
-          }, 500);
+          }, 1000); // Increased delay for better detection
         }
 
         return true;
@@ -220,6 +245,8 @@ export const useAudio = () => {
       return true;
     } catch (error) {
       console.error("Play failed:", error);
+      console.error("Error name:", error.name);
+      console.error("Error message:", error.message);
 
       // If autoplay is blocked, we need user interaction
       if (error.name === "NotAllowedError") {
@@ -258,16 +285,26 @@ export const useAudio = () => {
     }
   }, []);
 
-  // Set volume
+  // Set volume with better Web Audio support
   const setVolume = React.useCallback((volume) => {
     const clampedVolume = Math.max(0, Math.min(1, volume));
 
     if (isUsingWebAudio && gainNodeRef.current) {
       // Use Web Audio gain node for mobile
-      gainNodeRef.current.gain.value = clampedVolume;
+      try {
+        gainNodeRef.current.gain.value = clampedVolume;
+        console.log("Web Audio volume set to:", clampedVolume);
+      } catch (error) {
+        console.error("Failed to set Web Audio volume:", error);
+        // Fall back to HTML5 Audio
+        if (audioRef.current) {
+          audioRef.current.volume = clampedVolume;
+        }
+      }
     } else if (audioRef.current) {
-      // Use HTML5 Audio volume for desktop
+      // Use HTML5 Audio volume for desktop or fallback
       audioRef.current.volume = clampedVolume;
+      console.log("HTML5 Audio volume set to:", clampedVolume);
     }
   }, [isUsingWebAudio]);
 

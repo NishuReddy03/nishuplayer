@@ -14,8 +14,12 @@ const App = () => {
     return savedTheme === "light" || savedTheme === "dark" ? savedTheme : "dark";
   });
 
-  // Navigation state
-  const [activeNav, setActiveNav] = React.useState("home");
+  // Navigation state - handle URL parameters for PWA shortcuts
+  const [activeNav, setActiveNav] = React.useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const section = urlParams.get('section');
+    return section || "home";
+  });
 
   // Mobile menu state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
@@ -25,6 +29,10 @@ const App = () => {
 
   // Search state
   const [searchQuery, setSearchQuery] = React.useState("");
+
+  // Handle PWA installation prompt
+  const [deferredPrompt, setDeferredPrompt] = React.useState(null);
+  const [showInstallPrompt, setShowInstallPrompt] = React.useState(false);
 
   // Handle search query changes
   const handleSearchChange = (newQuery) => {
@@ -72,6 +80,47 @@ const App = () => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("nishu_theme", theme);
   }, [theme]);
+
+  // Handle PWA install prompt
+  React.useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      // Show install prompt after user has interacted with the app
+      setTimeout(() => setShowInstallPrompt(true), 30000); // Show after 30 seconds
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setShowInstallPrompt(false);
+      console.log('PWA was installed');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  // Handle install button click
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+      console.log('User accepted the install prompt');
+    } else {
+      console.log('User dismissed the install prompt');
+    }
+
+    setDeferredPrompt(null);
+    setShowInstallPrompt(false);
+  };
 
   // Fetch collection when activeNav changes
   React.useEffect(() => {
@@ -282,6 +331,38 @@ const App = () => {
             >
               Enable Audio
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* PWA Install Prompt */}
+      {showInstallPrompt && (
+        <div className="mobile-audio-message">
+          <div className="mobile-audio-content">
+            <button
+              className="mobile-audio-close"
+              onClick={() => setShowInstallPrompt(false)}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <div className="mobile-audio-icon">📱</div>
+            <h3>Install NishuPlayer</h3>
+            <p>Install our app for a better music experience with offline support!</p>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+              <button
+                className="mobile-audio-btn"
+                onClick={handleInstallClick}
+              >
+                Install App
+              </button>
+              <button
+                className="mobile-audio-btn secondary"
+                onClick={() => setShowInstallPrompt(false)}
+              >
+                Later
+              </button>
+            </div>
           </div>
         </div>
       )}
