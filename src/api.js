@@ -1,10 +1,35 @@
 // JioSaavn API service
-const API_BASE = "https://jiosaavn-api-privatecvc2.vercel.app";
+const API_MIRRORS = [
+  "https://saavn.dev",
+  "https://jiosaavn-api-privatecvc2.vercel.app",
+  "https://jiosaavn-api-nishu.vercel.app",
+  "https://jiosaavn-api-beta.vercel.app"
+];
+
+const JAMENDO_BASE = "https://api.jamendo.com/v3.0";
+const JAMENDO_CLIENT_ID = "56d30c95"; // Public client ID for Jamendo
 
 const decodeHtml = (html) => {
   const txt = document.createElement("textarea");
   txt.innerHTML = html;
   return txt.value;
+};
+
+const fetchWithFallback = async (endpoint) => {
+  for (const base of API_MIRRORS) {
+    try {
+      const response = await fetch(`${base}${endpoint}`, {
+        signal: AbortSignal.timeout(5000) // 5s timeout per mirror
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === "SUCCESS") return data;
+      }
+    } catch (e) {
+      console.warn(`Mirror ${base} failed, trying next...`);
+    }
+  }
+  throw new Error("All API mirrors failed");
 };
 
 const mapSongData = (song) => {
@@ -56,22 +81,47 @@ const mapSongData = (song) => {
   };
 };
 
+const mapJamendoData = (track) => {
+  return {
+    id: `jam-${track.id}`,
+    title: track.name,
+    artist: track.artist_name,
+    album: track.album_name || "Single",
+    duration: parseInt(track.duration, 10) || 0,
+    image: track.album_image || track.image || "https://via.placeholder.com/150",
+    url: track.audio,
+    language: "global",
+  };
+};
+
+const searchJamendo = async (query, limit = 10) => {
+  try {
+    const response = await fetch(
+      `${JAMENDO_BASE}/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=jsonsearch&search=${encodeURIComponent(query)}&limit=${limit}&audioformat=mp32`
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.results ? data.results.map(mapJamendoData) : [];
+  } catch (e) {
+    console.warn("Jamendo search failed:", e);
+    return [];
+  }
+};
+
 export const searchSongs = async (query, page = 0, limit = 20) => {
   if (!query.trim()) return [];
 
   try {
-    const response = await fetch(
-      `${API_BASE}/search/songs?query=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
-    );
+    const [saavnData, jamendoResults] = await Promise.all([
+      fetchWithFallback(`/search/songs?query=${encodeURIComponent(query)}&page=${page}&limit=${limit}`).catch(() => ({ data: { results: [] } })),
+      searchJamendo(query, 10)
+    ]);
 
-    if (!response.ok) throw new Error("API fetch failed");
-
-    const data = await response.json();
-    if (data.status !== "SUCCESS" || !data.data?.results) return [];
-
-    return data.data.results
+    const saavnResults = (saavnData.data?.results || [])
       .map(mapSongData)
       .filter((song) => song.url && song.url.trim() !== "");
+
+    return [...saavnResults, ...jamendoResults];
   } catch (error) {
     console.error("Search failed:", error);
     return [];
@@ -80,18 +130,26 @@ export const searchSongs = async (query, page = 0, limit = 20) => {
 
 export const getTrending = async (language = "hindi") => {
   try {
-    const response = await fetch(`${API_BASE}/modules?language=${language.toLowerCase()}`);
-    if (!response.ok) throw new Error("Trending fetch failed");
+    // If language is English or global, try Jamendo charts too
+    if (language.toLowerCase() === "english") {
+      const jamResponse = await fetch(`${JAMENDO_BASE}/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=jsonsearch&order=ratingweek_desc&limit=20`);
+      if (jamResponse.ok) {
+        const jamData = await jamResponse.json();
+        if (jamData.results) return jamData.results.map(mapJamendoData);
+      }
+    }
 
-    const data = await response.json();
-    if (data.status !== "SUCCESS") return [];
-
+    const data = await fetchWithFallback(`/modules?language=${language.toLowerCase()}`);
+    if (!data.data) return [];
     const trendingList = data.data?.trending?.songs || data.data?.charts?.[0]?.songs || [];
     return trendingList.map(mapSongData).filter(s => s.url);
   } catch (error) {
     console.error("Error fetching trending:", error);
-    // Fallback to a search-based trending if modules fail
     try {
+      if (language.toLowerCase() === "english") {
+        const fallback = await searchJamendo("top hits", 20);
+        if (fallback.length > 0) return fallback;
+      }
       return await searchSongs(language, 0, 20);
     } catch (e) {
       return [];
@@ -101,12 +159,8 @@ export const getTrending = async (language = "hindi") => {
 
 export const getNewReleases = async (language = "hindi") => {
   try {
-    const response = await fetch(`${API_BASE}/modules?language=${language.toLowerCase()}`);
-    if (!response.ok) throw new Error("New releases fetch failed");
-
-    const data = await response.json();
-    if (data.status !== "SUCCESS") return [];
-
+    const data = await fetchWithFallback(`/modules?language=${language.toLowerCase()}`);
+    if (!data.data) return [];
     const newSongs = data.data?.new_trending?.songs || [];
     if (newSongs.length > 0) {
       return newSongs.map(mapSongData).filter(s => s.url);
@@ -122,12 +176,8 @@ export const getNewReleases = async (language = "hindi") => {
 
 export const getSongSuggestions = async (songId) => {
   try {
-    const response = await fetch(`${API_BASE}/songs/${songId}/suggestions`);
-    if (!response.ok) throw new Error("Suggestions fetch failed");
-
-    const data = await response.json();
-    if (data.status !== "SUCCESS" || !data.data) return [];
-
+    const data = await fetchWithFallback(`/songs/${songId}/suggestions`);
+    if (!data.data) return [];
     return data.data
       .map(mapSongData)
       .filter((song) => song.url && song.url.trim() !== "");

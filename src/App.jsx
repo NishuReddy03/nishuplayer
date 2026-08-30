@@ -192,8 +192,9 @@ const App = () => {
     audio.addEventListener("timeupdate", handleAudioProgress);
     audio.addEventListener("ended", playNext);
     audio.addEventListener("error", (e) => {
-      console.error("Audio element error:", e);
-      playNext(); // Skip to next song on error
+      const error = audio.error;
+      console.warn("Playback failed for current track, skipping...", error?.message);
+      playNext();
     });
 
     return () => {

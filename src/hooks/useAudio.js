@@ -5,6 +5,8 @@ export const useAudio = () => {
   const audioContextRef = React.useRef(null);
   const gainNodeRef = React.useRef(null);
   const sourceNodeRef = React.useRef(null);
+  const bassNodeRef = React.useRef(null);
+  const trebleNodeRef = React.useRef(null);
 
   const [isAudioContextReady, setIsAudioContextReady] = React.useState(false);
   const [isMobileAudioBlocked, setIsMobileAudioBlocked] = React.useState(false);
@@ -37,10 +39,20 @@ export const useAudio = () => {
       }
 
       audioContextRef.current = new AudioContextClass();
-
-      // Create gain node for volume control
       gainNodeRef.current = audioContextRef.current.createGain();
-      gainNodeRef.current.gain.value = 1;
+      
+      // Initialize Filters
+      bassNodeRef.current = audioContextRef.current.createBiquadFilter();
+      bassNodeRef.current.type = "lowshelf";
+      bassNodeRef.current.frequency.value = 150;
+
+      trebleNodeRef.current = audioContextRef.current.createBiquadFilter();
+      trebleNodeRef.current.type = "highshelf";
+      trebleNodeRef.current.frequency.value = 4000;
+
+      // Connect Graph: Bass -> Treble -> Gain -> Destination
+      bassNodeRef.current.connect(trebleNodeRef.current);
+      trebleNodeRef.current.connect(gainNodeRef.current);
       gainNodeRef.current.connect(audioContextRef.current.destination);
 
       console.log("Web Audio API initialized for mobile device");
@@ -108,45 +120,37 @@ export const useAudio = () => {
   React.useEffect(() => {
     if (!audioRef.current) {
       const audio = new Audio();
-      audio.preload = "metadata";
+      audio.preload = "auto";
       audio.volume = 1;
+      // Important for cross-domain streaming from open APIs
+      audio.crossOrigin = "anonymous";
 
-      // Handle successful loading
-      audio.addEventListener("loadedmetadata", () => {
-        console.log("Audio metadata loaded");
-      });
-
-      // Handle can play
       audio.addEventListener("canplay", () => {
-        console.log("Audio can play");
         if (isUsingWebAudio && audioContextRef.current && audioContextRef.current.state === 'running') {
-          // Connect to Web Audio graph when ready
-          if (sourceNodeRef.current) {
-            sourceNodeRef.current.disconnect();
+          try {
+            // ONLY create the source once
+            if (!sourceNodeRef.current) {
+              sourceNodeRef.current = audioContextRef.current.createMediaElementSource(audio);
+              sourceNodeRef.current.connect(bassNodeRef.current);
+            }
+          } catch (e) {
+            console.warn("Web Audio connection failed, falling back to direct playback", e);
           }
-          sourceNodeRef.current = audioContextRef.current.createMediaElementSource(audio);
-          sourceNodeRef.current.connect(gainNodeRef.current);
         }
       });
 
-      // Handle errors
       audio.addEventListener("error", (error) => {
-        console.error("Audio Playback Error:", error);
-        console.error("Error code:", audio.error?.code);
-        console.error("Error message:", audio.error?.message);
+        console.error("Audio Error:", audio.error?.message);
+        // Fallback: If anonymous fails (CORS), try without it
+        if (audio.crossOrigin === "anonymous") {
+          console.log("Retrying without CORS...");
+          audio.removeAttribute("crossOrigin");
+          audio.load();
+          audio.play().catch(() => {});
+        }
         if (isMobile) {
           setIsMobileAudioBlocked(true);
         }
-      });
-
-      // Handle load start
-      audio.addEventListener("loadstart", () => {
-        console.log("Audio load started");
-      });
-
-      // Handle stalled
-      audio.addEventListener("stalled", () => {
-        console.warn("Audio stalled");
       });
 
       audioRef.current = audio;
@@ -169,8 +173,9 @@ export const useAudio = () => {
   const setAudioSource = React.useCallback((url) => {
     if (!audioRef.current || !url) return;
 
-    console.log("Setting audio source:", url);
-    audioRef.current.src = url;
+    // Ensure URL is HTTPS to avoid mixed-content blocks on mobile
+    const secureUrl = url.replace("http://", "https://");
+    audioRef.current.src = secureUrl;
     audioRef.current.load();
   }, []);
 
