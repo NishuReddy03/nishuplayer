@@ -52,6 +52,7 @@ const App = () => {
     history,
     trendingSongs,
     newReleases,
+    freeMusicSongs,
     activeLanguage,
     playNext,
     setProgress,
@@ -59,6 +60,7 @@ const App = () => {
     playSong,
     fetchTrending,
     fetchNewReleases,
+    fetchFreeMusic,
     setLanguage,
   } = useMusicStoreWithActions();
 
@@ -128,8 +130,10 @@ const App = () => {
       fetchTrending(activeLanguage);
     } else if (activeNav === "new-releases") {
       fetchNewReleases(activeLanguage);
+    } else if (activeNav === "free-music") {
+      fetchFreeMusic();
     }
-  }, [activeNav, activeLanguage, fetchTrending, fetchNewReleases]);
+  }, [activeNav, activeLanguage, fetchTrending, fetchNewReleases, fetchFreeMusic]);
 
   // Sync mobile audio blocked state
   React.useEffect(() => {
@@ -235,12 +239,22 @@ const App = () => {
               activeLanguage={activeLanguage}
               onLanguageChange={setLanguage}
             />
-            <SongListView
+            {trendingSongs.length === 0 ? (
+              <div className="empty-message">
+                <p>JioSaavn mirrors are currently unavailable (402 Error).</p>
+                <button 
+                  className="mobile-audio-btn" 
+                  onClick={() => setActiveNav("free-music")}
+                >Try Open Platform Music</button>
+              </div>
+            ) : (
+              <SongListView
               title=""
               songs={trendingSongs}
               onPlay={(s) => playSong(s, trendingSongs)}
             />
-          </div>
+          )}
+        </div>
         );
       case "new-releases":
         return (
@@ -250,10 +264,31 @@ const App = () => {
               activeLanguage={activeLanguage}
               onLanguageChange={setLanguage}
             />
+            {newReleases.length === 0 ? (
+              <div className="empty-message">
+                <p>New Releases are currently unavailable.</p>
+                <button 
+                  className="mobile-audio-btn" 
+                  onClick={() => setActiveNav("free-music")}
+                >Explore Free Music</button>
+              </div>
+            ) : (
+              <SongListView
+                title=""
+                songs={newReleases}
+                onPlay={(s) => playSong(s, newReleases)}
+              />
+            )}
+          </div>
+        );
+      case "free-music":
+        return (
+          <div className="main-area-content">
+            <h1 className="section-title">Open Platform Music (Jamendo)</h1>
             <SongListView
-              title=""
-              songs={newReleases}
-              onPlay={(s) => playSong(s, newReleases)}
+              title="Royalty Free Hits"
+              songs={freeMusicSongs}
+              onPlay={(s) => playSong(s, freeMusicSongs)}
             />
           </div>
         );
@@ -265,20 +300,8 @@ const App = () => {
         return <SearchArea searchQuery={searchQuery} onPlaySong={playSong} />;
       case "home":
       default:
-        return (
-          <div className="main-area-content">
-            <CollectionHeader
-              title="Trending Now"
-              activeLanguage={activeLanguage}
-              onLanguageChange={setLanguage}
-            />
-            <SongListView
-              title=""
-              songs={trendingSongs}
-              onPlay={(s) => playSong(s, trendingSongs)}
-            />
-          </div>
-        );
+        // Reuse the trending logic for the home page to ensure consistency
+        return renderMainContent("trending");
     }
   };
 

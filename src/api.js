@@ -1,9 +1,13 @@
 // JioSaavn API service
 const API_MIRRORS = [
   "https://saavn.dev",
+  "https://jio-saavn-api.vercel.app",
   "https://jiosaavn-api-privatecvc2.vercel.app",
   "https://jiosaavn-api-nishu.vercel.app",
-  "https://jiosaavn-api-beta.vercel.app"
+  "https://jiosaavn-api-beta.vercel.app",
+  "https://jiosaavn.vercel.app",
+  "https://jiosaavn-api.vercel.app",
+  "https://jio-saavn.vercel.app"
 ];
 
 const JAMENDO_BASE = "https://api.jamendo.com/v3.0";
@@ -16,20 +20,30 @@ const decodeHtml = (html) => {
 };
 
 const fetchWithFallback = async (endpoint) => {
+  let lastError = null;
   for (const base of API_MIRRORS) {
     try {
       const response = await fetch(`${base}${endpoint}`, {
-        signal: AbortSignal.timeout(5000) // 5s timeout per mirror
+        // Increased timeout slightly for slower mirrors
+        signal: AbortSignal.timeout(8000) 
       });
+
+      if (response.status === 402) {
+        console.warn(`Mirror ${base} reached usage limits (402). Trying next...`);
+        continue;
+      }
+
       if (response.ok) {
         const data = await response.json();
         if (data.status === "SUCCESS") return data;
       }
     } catch (e) {
-      console.warn(`Mirror ${base} failed, trying next...`);
+      lastError = e;
+      console.warn(`Mirror ${base} failed (${e.name}): ${e.message}`);
+      // If it's a CORS error or Network error, it will catch here and continue
     }
   }
-  throw new Error("All API mirrors failed");
+  throw lastError || new Error("All API mirrors failed");
 };
 
 const mapSongData = (song) => {
@@ -108,6 +122,20 @@ const searchJamendo = async (query, limit = 10) => {
   }
 };
 
+export const getFreeMusic = async (limit = 30) => {
+  try {
+    const response = await fetch(
+      `${JAMENDO_BASE}/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=jsonsearch&order=buzzrate_desc&limit=${limit}&audioformat=mp32`
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.results ? data.results.map(mapJamendoData) : [];
+  } catch (e) {
+    console.warn("Jamendo top tracks fetch failed:", e);
+    return [];
+  }
+};
+
 export const searchSongs = async (query, page = 0, limit = 20) => {
   if (!query.trim()) return [];
 
@@ -144,13 +172,10 @@ export const getTrending = async (language = "hindi") => {
     const trendingList = data.data?.trending?.songs || data.data?.charts?.[0]?.songs || [];
     return trendingList.map(mapSongData).filter(s => s.url);
   } catch (error) {
-    console.error("Error fetching trending:", error);
+    console.warn("JioSaavn mirrors failed, falling back to Jamendo trending...", error);
     try {
-      if (language.toLowerCase() === "english") {
-        const fallback = await searchJamendo("top hits", 20);
-        if (fallback.length > 0) return fallback;
-      }
-      return await searchSongs(language, 0, 20);
+      // Global fallback to Jamendo hits if JioSaavn mirrors are down/limited
+      return await getFreeMusic(20);
     } catch (e) {
       return [];
     }
@@ -170,7 +195,8 @@ export const getNewReleases = async (language = "hindi") => {
     return await searchSongs(`latest ${language}`, 0, 20);
   } catch (error) {
     console.error("Error fetching new releases:", error);
-    return [];
+    // Fallback to Jamendo for New Releases as well if mirrors are down
+    return await getFreeMusic(20);
   }
 };
 

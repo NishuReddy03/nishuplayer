@@ -43,6 +43,7 @@ export const musicStore = createStore((setState, getState) => {
     history: Array.isArray(history) ? history : [],
     trendingSongs: [],
     newReleases: [],
+    freeMusicSongs: [],
     activeLanguage: "hindi",
     searchPage: 0,
     playlists: [],
@@ -210,6 +211,17 @@ export const musicStore = createStore((setState, getState) => {
       }
     },
 
+    // Action: Fetch free music (Jamendo)
+    fetchFreeMusic: async () => {
+      try {
+        const { getFreeMusic } = await import("./api");
+        const songs = await getFreeMusic();
+        setState({ freeMusicSongs: songs });
+      } catch (error) {
+        console.error("Fetch free music failed:", error);
+      }
+    },
+
     // Action: Set active language
     setLanguage: (lang) => setState({ activeLanguage: lang }),
 
@@ -268,6 +280,7 @@ export const useMusicStoreWithActions = () => {
     toggleFavorite: s.toggleFavorite,
     fetchTrending: s.fetchTrending,
     fetchNewReleases: s.fetchNewReleases,
+    fetchFreeMusic: s.fetchFreeMusic,
     setLanguage: s.setLanguage,
     loadMoreSearchResults: s.loadMoreSearchResults,
     resetSearchPage: s.resetSearchPage,

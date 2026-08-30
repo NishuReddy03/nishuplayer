@@ -201,19 +201,15 @@ export const useAudio = () => {
 
     // Wait for audio to be ready if it's not loaded yet
     if (audioRef.current.readyState < 2) { // HAVE_CURRENT_DATA or higher
-      console.log("Audio not ready, waiting for canplay event");
-      await new Promise((resolve) => {
+      await new Promise((resolve, reject) => {
         const onCanPlay = () => {
           audioRef.current.removeEventListener("canplay", onCanPlay);
           resolve();
         };
         audioRef.current.addEventListener("canplay", onCanPlay);
-
-        // Timeout after 10 seconds
-        setTimeout(() => {
-          audioRef.current.removeEventListener("canplay", onCanPlay);
-          resolve();
-        }, 10000);
+        
+        // Faster timeout for mobile (5s) to prevent UI hang
+        setTimeout(resolve, 5000);
       });
     }
 
